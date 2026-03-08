@@ -1,51 +1,58 @@
-// server.js
+
 const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 require("dotenv").config();
-const fetch = require("node-fetch"); // Ensure node-fetch installed v3+ for ESM, or use native fetch in Node 18+
+const fetch = require("node-fetch"); 
 
 const app = express();
 
-// ---- CORS: allow only your frontend (replace with your domain) ----
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://aniugogeo.vercel.app",
+];
+
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://yourfrontend.com"], // frontend URLs
-    methods: ["GET"],
-  }),
+    origin: function (origin, callback) {
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(null, true);
+      } else {
+        callback(new Error("Not allowed by CORS"));
+      }
+    },
+  })
 );
 
-// ---- JSON parser ----
+
 app.use(express.json());
 
-// ---- Rate Limiter: max 1 request/sec per IP ----
+// ---- Rate Limiter: max 2 request/sec per IP ----
 const orsLimiter = rateLimit({
-  windowMs: 1000, // 1 second
+  windowMs: 2000,
   max: 1,
   message: { error: "Too many requests, slow down!" },
 });
 app.use("/route", orsLimiter);
 
-// ---- Simple in-memory cache ----
+
 const routeCache = new Map();
 
-// ---- Route: ORS Directions ----
 app.get("/route", async (req, res) => {
   try {
     const { start, end } = req.query;
 
-    // ---- Validate query params ----
+    
     if (!start || !end) {
       return res.status(400).json({ error: "Missing start or end parameters" });
     }
 
-    // ---- Check cache first ----
+  
     const cacheKey = `${start}_${end}`;
     if (routeCache.has(cacheKey)) {
       return res.json({ ...routeCache.get(cacheKey), cached: true });
     }
 
-    // ---- Check API key ----
     const apiKey = process.env.ORS_API_KEY;
     if (!apiKey) {
       return res
@@ -77,12 +84,11 @@ app.get("/route", async (req, res) => {
   }
 });
 
-// ---- Health check ----
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
 
-// ---- Start server ----
+
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
