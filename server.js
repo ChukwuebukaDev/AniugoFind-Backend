@@ -1,9 +1,8 @@
-
 const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 require("dotenv").config();
-const fetch = require("node-fetch"); 
+const fetch = require("node-fetch");
 
 const app = express();
 
@@ -21,20 +20,18 @@ app.use(
         callback(new Error("Not allowed by CORS"));
       }
     },
-  })
+  }),
 );
-
 
 app.use(express.json());
 
 // ---- Rate Limiter: max 2 request/sec per IP ----
 const orsLimiter = rateLimit({
-  windowMs: 2000,
-  max: 1,
+  windowMs: 1000,
+  max: 20,
   message: { error: "Too many requests, slow down!" },
 });
 app.use("/route", orsLimiter);
-
 
 const routeCache = new Map();
 
@@ -42,12 +39,10 @@ app.get("/route", async (req, res) => {
   try {
     const { start, end } = req.query;
 
-    
     if (!start || !end) {
       return res.status(400).json({ error: "Missing start or end parameters" });
     }
 
-  
     const cacheKey = `${start}_${end}`;
     if (routeCache.has(cacheKey)) {
       return res.json({ ...routeCache.get(cacheKey), cached: true });
@@ -87,7 +82,6 @@ app.get("/route", async (req, res) => {
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
-
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
