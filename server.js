@@ -3,9 +3,11 @@ const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 require("dotenv").config();
+const fetch = require("node-fetch");
 
 const app = express();
 
+// Allowed origins for CORS
 const allowedOrigins = [
   "http://localhost:5173",
   "https://aniugogeo.vercel.app",
@@ -23,23 +25,24 @@ app.use(
   })
 );
 
-
 app.use(express.json());
 
-
+// Rate limiter for /route
 const orsLimiter = rateLimit({
-  windowMs: 2000, 
+  windowMs: 2000, // 2 seconds
   max: 10,
   message: { error: "Too many requests, slow down!" },
 });
 app.use("/route", orsLimiter);
 
-
+// Simple in-memory cache
 const routeCache = new Map();
 
+// Route endpoint
 app.get("/route", async (req, res) => {
   try {
     const { start, end } = req.query;
+
     if (!start || !end) {
       return res.status(400).json({ error: "Missing start or end parameters" });
     }
@@ -50,6 +53,11 @@ app.get("/route", async (req, res) => {
     }
 
     const apiKey = process.env.ORS_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: "ORS API key is missing in environment" });
+    }
+
+    // Convert start/end to numbers
     const [startLng, startLat] = start.split(",").map(Number);
     const [endLng, endLat] = end.split(",").map(Number);
 
@@ -75,25 +83,21 @@ app.get("/route", async (req, res) => {
 
     const data = await response.json();
 
-    // Cache route for 10 minutes
+    // Cache the result for 10 minutes
     routeCache.set(cacheKey, data);
     setTimeout(() => routeCache.delete(cacheKey), 10 * 60 * 1000);
 
     res.json({ ...data, cached: false });
   } catch (error) {
     console.error("Route fetch error:", error);
-    res.status(500).json({
-      error: "Internal server error",
-      details: error.message,
-    });
+    res.status(500).json({ error: "Internal server error", details: error.message });
   }
 });
+
+// Health check
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
 
-
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
