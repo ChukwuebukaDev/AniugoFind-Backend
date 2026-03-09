@@ -4,9 +4,6 @@ const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 require("dotenv").config();
 
-// Node 22 + CommonJS compatible fetch
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
-
 const app = express();
 
 // Allowed origins for CORS
@@ -58,10 +55,15 @@ app.get("/route", async (req, res) => {
     if (!apiKey) {
       return res.status(500).json({ error: "ORS API key is missing in environment" });
     }
-
+console.log('hello from aniugo')
     // Convert start/end to numbers
     const [startLng, startLat] = start.split(",").map(Number);
     const [endLng, endLat] = end.split(",").map(Number);
+
+    // Validate coordinates
+    if ([startLng, startLat, endLng, endLat].some(isNaN)) {
+      return res.status(400).json({ error: "Invalid start or end coordinates" });
+    }
 
     const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
       method: "POST",
