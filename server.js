@@ -40,7 +40,6 @@ const routeCache = new Map();
 app.get("/route", async (req, res) => {
   try {
     const { start, end } = req.query;
-
     if (!start || !end) {
       return res.status(400).json({ error: "Missing start or end parameters" });
     }
@@ -51,13 +50,22 @@ app.get("/route", async (req, res) => {
     }
 
     const apiKey = process.env.ORS_API_KEY;
+    const [startLng, startLat] = start.split(",").map(Number);
+    const [endLng, endLat] = end.split(",").map(Number);
 
-    const url = `https://api.openrouteservice.org/v2/directions/driving-car?start=${start}&end=${end}`;
-
-    const response = await fetch(url, {
+    const response = await fetch("https://api.openrouteservice.org/v2/directions/driving-car", {
+      method: "POST",
       headers: {
         Authorization: apiKey,
+        "Content-Type": "application/json",
+        Accept: "application/json",
       },
+      body: JSON.stringify({
+        coordinates: [
+          [startLng, startLat],
+          [endLng, endLat],
+        ],
+      }),
     });
 
     if (!response.ok) {
@@ -67,6 +75,7 @@ app.get("/route", async (req, res) => {
 
     const data = await response.json();
 
+    // Cache route for 10 minutes
     routeCache.set(cacheKey, data);
     setTimeout(() => routeCache.delete(cacheKey), 10 * 60 * 1000);
 
@@ -79,7 +88,6 @@ app.get("/route", async (req, res) => {
     });
   }
 });
-
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
