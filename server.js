@@ -52,18 +52,25 @@ app.get("/route", async (req, res) => {
 
     const apiKey = process.env.ORS_API_KEY;
 
-    const url = `https://api.openrouteservice.org/v2/directions/driving-car?start=${start}&end=${end}`;
+    const [startLng, startLat] = start.split(",").map(Number);
+    const [endLng, endLat] = end.split(",").map(Number);
 
-    const response = await fetch(url, {
-      headers: {
-        Authorization: apiKey,
-      },
-    });
-
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: text });
-    }
+    const response = await fetch(
+      "https://api.openrouteservice.org/v2/directions/driving-car",
+      {
+        method: "POST",
+        headers: {
+          Authorization: apiKey,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          coordinates: [
+            [startLng, startLat],
+            [endLng, endLat],
+          ],
+        }),
+      }
+    );
 
     const data = await response.json();
 
@@ -72,11 +79,8 @@ app.get("/route", async (req, res) => {
 
     res.json({ ...data, cached: false });
   } catch (error) {
-    console.error("Route fetch error:", error);
-    res.status(500).json({
-      error: "Internal server error",
-      details: error.message,
-    });
+    console.error(error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 
