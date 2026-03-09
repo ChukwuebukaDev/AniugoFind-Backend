@@ -23,7 +23,6 @@ app.use(
   })
 );
 
-
 app.use(express.json());
 
 
@@ -84,7 +83,26 @@ app.get("/route", async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 });
+app.get("/debug", async (req, res) => {
+  const key = process.env.ORS_API_KEY;
+  let test = null;
 
+  try {
+    const response = await fetch(
+      "https://api.openrouteservice.org/v2/directions/driving-car",
+      {
+        method: "POST",
+        headers: { Authorization: key, "Content-Type": "application/json" },
+        body: JSON.stringify({ coordinates: [[8.681495,49.41461],[8.687872,49.420318]] }),
+      }
+    );
+    test = await response.text();
+  } catch (err) {
+    test = err.message;
+  }
+
+  res.json({ keyLoaded: !!key, keyLength: key?.length, orsTest: test });
+});
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
@@ -94,3 +112,5 @@ const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
+var request = require('request');
+
