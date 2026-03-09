@@ -3,7 +3,9 @@ const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 require("dotenv").config();
-const fetch = require("node-fetch");
+
+// Node 22 + CommonJS compatible fetch
+const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
 
 const app = express();
 
@@ -94,7 +96,7 @@ app.get("/route", async (req, res) => {
   }
 });
 
-// Health check
+// Health check endpoint
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
