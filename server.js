@@ -45,22 +45,20 @@ app.get("/route", async (req, res) => {
       return res.status(400).json({ error: "Missing start or end parameters" });
     }
 
-  
     const cacheKey = `${start}_${end}`;
     if (routeCache.has(cacheKey)) {
       return res.json({ ...routeCache.get(cacheKey), cached: true });
     }
 
     const apiKey = process.env.ORS_API_KEY;
-    if (!apiKey) {
-      return res
-        .status(500)
-        .json({ error: "Missing ORS API key in environment" });
-    }
 
-  
-    const url = `https://api.openrouteservice.org/v2/directions/driving-car?api_key=${apiKey}&start=${start}&end=${end}`;
-    const response = await fetch(url);
+    const url = `https://api.openrouteservice.org/v2/directions/driving-car?start=${start}&end=${end}`;
+
+    const response = await fetch(url, {
+      headers: {
+        Authorization: apiKey,
+      },
+    });
 
     if (!response.ok) {
       const text = await response.text();
@@ -69,14 +67,16 @@ app.get("/route", async (req, res) => {
 
     const data = await response.json();
 
- 
     routeCache.set(cacheKey, data);
     setTimeout(() => routeCache.delete(cacheKey), 10 * 60 * 1000);
 
     res.json({ ...data, cached: false });
   } catch (error) {
     console.error("Route fetch error:", error);
-    res.status(500).json({ error: "Internal server error", details: error.message });
+    res.status(500).json({
+      error: "Internal server error",
+      details: error.message,
+    });
   }
 });
 
