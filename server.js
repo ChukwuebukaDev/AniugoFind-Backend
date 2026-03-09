@@ -51,6 +51,7 @@ app.get("/route", async (req, res) => {
     }
 
     const apiKey = process.env.ORS_API_KEY;
+    console.log('ORS-Key Test 1:',process.env.ORS_API_KEY)
 
     const [startLng, startLat] = start.split(",").map(Number);
     const [endLng, endLat] = end.split(",").map(Number);
@@ -87,7 +88,7 @@ app.get("/route", async (req, res) => {
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
-
+ console.log('ORS-Key Test 2:',process.env.ORS_API_KEY)
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
