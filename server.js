@@ -23,6 +23,7 @@ app.use(
   })
 );
 
+
 app.use(express.json());
 
 
@@ -50,27 +51,19 @@ app.get("/route", async (req, res) => {
     }
 
     const apiKey = process.env.ORS_API_KEY;
-    console.log('ORS-Key Test 1:',process.env.ORS_API_KEY)
 
-    const [startLng, startLat] = start.split(",").map(Number);
-    const [endLng, endLat] = end.split(",").map(Number);
+    const url = `https://api.openrouteservice.org/v2/directions/driving-car?start=${start}&end=${end}`;
 
-    const response = await fetch(
-      "https://api.openrouteservice.org/v2/directions/driving-car",
-      {
-        method: "POST",
-        headers: {
-          Authorization: apiKey,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          coordinates: [
-            [startLng, startLat],
-            [endLng, endLat],
-          ],
-        }),
-      }
-    );
+    const response = await fetch(url, {
+      headers: {
+        Authorization: apiKey,
+      },
+    });
+
+    if (!response.ok) {
+      const text = await response.text();
+      return res.status(response.status).json({ error: text });
+    }
 
     const data = await response.json();
 
@@ -79,38 +72,20 @@ app.get("/route", async (req, res) => {
 
     res.json({ ...data, cached: false });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal server error" });
+    console.error("Route fetch error:", error);
+    res.status(500).json({
+      error: "Internal server error",
+      details: error.message,
+    });
   }
 });
-app.get("/debug", async (req, res) => {
-  const key = process.env.ORS_API_KEY;
-  let test = null;
 
-  try {
-    const response = await fetch(
-      "https://api.openrouteservice.org/v2/directions/driving-car",
-      {
-        method: "POST",
-        headers: { Authorization: key, "Content-Type": "application/json" },
-        body: JSON.stringify({ coordinates: [[8.681495,49.41461],[8.687872,49.420318]] }),
-      }
-    );
-    test = await response.text();
-  } catch (err) {
-    test = err.message;
-  }
-
-  res.json({ keyLoaded: !!key, keyLength: key?.length, orsTest: test });
-});
 app.get("/", (req, res) => {
   res.send("Backend is running ✅");
 });
- console.log('ORS-Key Test 2:',process.env.ORS_API_KEY)
+
 
 const PORT = process.env.PORT || 3001;
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 });
-var request = require('request');
-
