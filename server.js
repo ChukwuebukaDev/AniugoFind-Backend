@@ -10,6 +10,7 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "https://aniugogeo.vercel.app",
+  "https://uzon.netlify.app",
 ];
 
 app.use(
@@ -21,7 +22,7 @@ app.use(
         callback(new Error("Not allowed by CORS"));
       }
     },
-  })
+  }),
 );
 
 // ----------------- JSON parser -----------------
@@ -29,8 +30,8 @@ app.use(express.json());
 
 // ----------------- Rate Limiter -----------------
 const orsLimiter = rateLimit({
-  windowMs: 2000, // 2 seconds
-  max: 1,
+  windowMs: 60 * 1000,
+  max: 30,
   message: { error: "Too many requests, slow down!" },
 });
 app.use("/route", orsLimiter);
@@ -79,7 +80,9 @@ app.get("/route", async (req, res) => {
     res.json({ ...data, cached: false });
   } catch (error) {
     console.error("Route fetch error:", error);
-    res.status(500).json({ error: "Internal server error", details: error.message });
+    res
+      .status(500)
+      .json({ error: "Internal server error", details: error.message });
   }
 });
 //ORS_API_KEY=eyJvcmciOiI1YjNjZTM1OTc4NTExMTAwMDFjZjYyNDgiLCJpZCI6IjcwYmQxOWQyYzVhOGVmZThiYWFmYzVmMGZiOWVkODJkMTkwMTVhZjdlMGI2MjA3Y2Y5OWJjZjA4IiwiaCI6Im11cm11cjY0In0=
