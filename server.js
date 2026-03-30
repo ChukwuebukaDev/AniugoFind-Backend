@@ -3,15 +3,21 @@ const express = require("express");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 
-// Node 22 + CommonJS compatible fetch
-const fetch = (...args) => import('node-fetch').then(({default: fetch}) => fetch(...args));
+// Node 22 fetch
+const fetch = (...args) =>
+  import("node-fetch").then(({ default: fetch }) => fetch(...args));
 
 const app = express();
 
-// Allowed origins for CORS
+
+// ===============================
+// 🌐 CORS
+// ===============================
 const allowedOrigins = [
-  "http://localhost:5173",           // React dev
-  "https://aniugogeo.vercel.app",   // Deployed frontend
+  "http://localhost:5173",
+  "https://aniugogeo.vercel.app",
+  "https://uzon.netlify.app",
+  'http://localhost:3000',
 ];
 
 app.use(
@@ -28,41 +34,91 @@ app.use(
 
 app.use(express.json());
 
-// Rate limiter for /route
+
+// ===============================
+// 🚦 RATE LIMIT
+// ===============================
 const routeLimiter = rateLimit({
   windowMs: 2000,
   max: 10,
   message: { error: "Too many requests, slow down!" },
 });
+
 app.use("/route", routeLimiter);
 
-// Simple in-memory cache
+
+// ===============================
+// 🧠 CACHE
+// ===============================
 const routeCache = new Map();
 
-// OSRM-based /route endpoint
+
+// ===============================
+// 🔁 FETCH WITH TIMEOUT + RETRY
+// ===============================
+async function fetchWithRetry(url, retries = 3, timeout = 5000) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), timeout);
+
+  try {
+    const res = await fetch(url, { signal: controller.signal });
+
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      throw new Error(`HTTP ${res.status}`);
+    }
+
+    return res;
+  } catch (err) {
+    clearTimeout(timeoutId);
+
+    if (retries > 0) {
+      console.warn("Retrying...", err.message);
+      return fetchWithRetry(url, retries - 1, timeout);
+    }
+
+    throw err;
+  }
+}
+
+
+// ===============================
+// 🗺️ ROUTE ENDPOINT
+// ===============================
 app.get("/route", async (req, res) => {
   try {
     const { start, end } = req.query;
-    if (!start || !end) {
-      return res.status(400).json({ error: "Missing start or end parameters" });
-    }
 
-    const cacheKey = `${start}_${end}`;
-    if (routeCache.has(cacheKey)) {
-      return res.json({ ...routeCache.get(cacheKey), cached: true });
+    if (!start || !end) {
+      return res.status(400).json({
+        error: "Missing start or end parameters",
+      });
     }
 
     const [startLng, startLat] = start.split(",").map(Number);
     const [endLng, endLat] = end.split(",").map(Number);
 
-    // OSRM public demo server URL
+    if ([startLng, startLat, endLng, endLat].some(isNaN)) {
+      return res.status(400).json({
+        error: "Invalid coordinates",
+      });
+    }
+
+    // ✅ Improved cache key
+    const cacheKey = `${startLng.toFixed(5)},${startLat.toFixed(5)}_${endLng.toFixed(5)},${endLat.toFixed(5)}`;
+
+    if (routeCache.has(cacheKey)) {
+      return res.json({
+        ...routeCache.get(cacheKey),
+        cached: true,
+      });
+    }
+
     const url = `https://router.project-osrm.org/route/v1/driving/${startLng},${startLat};${endLng},${endLat}?overview=full&geometries=geojson&steps=true`;
 
-    const response = await fetch(url);
-    if (!response.ok) {
-      const text = await response.text();
-      return res.status(response.status).json({ error: text });
-    }
+    // 🔥 FIXED: use retry fetch
+    const response = await fetchWithRetry(url);
 
     const data = await response.json();
 
@@ -70,15 +126,37 @@ app.get("/route", async (req, res) => {
     routeCache.set(cacheKey, data);
     setTimeout(() => routeCache.delete(cacheKey), 10 * 60 * 1000);
 
+    // Prevent memory blow-up
+    if (routeCache.size > 1000) {
+      routeCache.clear();
+    }
+
     res.json({ ...data, cached: false });
+
   } catch (err) {
-    console.error("Route fetch error:", err);
-    res.status(500).json({ error: "Internal server error", details: err.message });
+    console.error("Route fetch error:", err.message);
+
+    res.status(500).json({
+      error: "Routing failed",
+      details: err.message,
+    });
   }
 });
 
-// Health check
-app.get("/", (req, res) => res.send("Backend is running ✅"));
 
+// ===============================
+// ❤️ HEALTH CHECK
+// ===============================
+app.get("/", (req, res) => {
+  res.send("Backend is running ✅");
+});
+
+
+// ===============================
+// 🚀 START SERVER (FIXED)
+// ===============================
 const PORT = process.env.PORT || 3001;
-app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
+
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
+});
